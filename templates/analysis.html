@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto text-center">
+        <div class="card">
+            <div class="card-body">
+                <h2>Анализ документов</h2>
+
+                <div class="progress mb-3">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                         style="width: 100%">Анализ выполняется...</div>
+                </div>
+
+                <div class="spinner-border text-primary my-4" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+
+                <p class="mb-3">Идет анализ контракта...</p>
+                <p class="text-muted">Пожалуйста, не закрывайте страницу</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Автоматически запускаем анализ после загрузки страницы
+    setTimeout(function() {
+        fetch("{{ url_for('api_analyze') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert('Ошибка: ' + data.error);
+                window.location.href = "{{ url_for('upload_files') }}";
+            } else {
+                window.location.href = "{{ url_for('results') }}";
+            }
+        })
+        .catch(error => {
+            alert('Ошибка соединения: ' + error);
+            window.location.href = "{{ url_for('upload_files') }}";
+        });
+    }, 1000);
+</script>
+{% endblock %}

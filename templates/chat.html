@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Чат с AI ассистентом</h4>
+            </div>
+            <div class="card-body">
+                <div id="chat-messages" style="height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 5px;">
+                    <div class="alert alert-info">
+                        Задайте вопрос о контрактах 44-ФЗ/223-ФЗ
+                    </div>
+                </div>
+                <div class="input-group">
+                    <input type="text" id="question-input" class="form-control" placeholder="Ваш вопрос о контрактах...">
+                    <button id="send-btn" class="btn btn-primary">Отправить</button>
+                </div>
+                <div class="form-text mt-2">
+                    Примеры вопросов: "Какие обязательные условия для контракта по 44-ФЗ?", "Как проверить соответствие цены контракта извещению?"
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('send-btn').addEventListener('click', sendMessage);
+document.getElementById('question-input').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+});
+
+function sendMessage() {
+    const question = document.getElementById('question-input').value;
+    if (question.trim()) {
+        // Добавляем вопрос в чат
+        const chat = document.getElementById('chat-messages');
+        chat.innerHTML += `<div class="text-end mb-2"><span class="badge bg-primary">Вы:</span> ${question}</div>`;
+        
+        // Показываем индикатор загрузки
+        chat.innerHTML += `<div class="text-start mb-2"><span class="badge bg-secondary">AI:</span> <em>Думает...</em></div>`;
+        chat.scrollTop = chat.scrollHeight;
+        
+        // Отправляем на сервер
+        fetch('/api/chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({question: question})
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Удаляем индикатор загрузки
+            chat.innerHTML = chat.innerHTML.replace(/<div class="text-start mb-2"><span class="badge bg-secondary">AI:<\/span> <em>Думает\.\.\.<\/em><\/div>/, '');
+            
+            if (data.answer) {
+                chat.innerHTML += `<div class="text-start mb-2"><span class="badge bg-success">AI:</span> ${data.answer}</div>`;
+            } else {
+                chat.innerHTML += `<div class="text-start mb-2 text-danger"><span class="badge bg-danger">Ошибка:</span> ${data.error}</div>`;
+            }
+            chat.scrollTop = chat.scrollHeight;
+        })
+        .catch(error => {
+            chat.innerHTML = chat.innerHTML.replace(/<div class="text-start mb-2"><span class="badge bg-secondary">AI:<\/span> <em>Думает\.\.\.<\/em><\/div>/, '');
+            chat.innerHTML += `<div class="text-start mb-2 text-danger">Ошибка сети: ${error}</div>`;
+            chat.scrollTop = chat.scrollHeight;
+        });
+        
+        document.getElementById('question-input').value = '';
+    }
+}
+</script>
+{% endblock %}

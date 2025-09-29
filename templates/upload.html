@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Загрузка документов для анализа</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data" action="{{ url_for('upload_files') }}">
+                    <div class="mb-3">
+                        <label for="law_type" class="form-label">Тип закупки:</label>
+                        <select class="form-select" id="law_type" name="law_type" required>
+                            <option value="44-ФЗ">44-ФЗ (Государственные закупки)</option>
+                            <option value="223-ФЗ">223-ФЗ (Корпоративные закупки)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="contract_file" class="form-label">Контракт *:</label>
+                        <input class="form-control" type="file" id="contract_file" name="contract_file" accept=".pdf,.docx,.txt,.PDF,.DOCX,.TXT" required>
+                        <div class="form-text">Поддерживаемые форматы: PDF, DOCX, TXT</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="notice_file" class="form-label">Извещение о закупке (необязательно):</label>
+                        <input class="form-control" type="file" id="notice_file" name="notice_file" accept=".pdf,.docx,.txt,.PDF,.DOCX,.TXT">
+                        <div class="form-text">Если извещение отсутствует, анализ будет проведен только по контракту</div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">Начать анализ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-10 mx-auto">
+        <h2 class="mb-4">Результаты анализа</h2>
+
+        <!-- Информация о наличии извещения -->
+        {% if not result.has_notice %}
+        <div class="alert alert-info mb-4">
+            <strong>Информация:</strong> Анализ проведен только по контракту. Для более точной проверки рекомендуется загрузить извещение о закупке.
+        </div>
+        {% endif %}
+
+        <!-- Сводка -->
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Сводка проверки</h5>
+            </div>
+            <div class="card-body">
+                {% if result.summary %}
+                    <div class="row">
+                        <div class="col-md-3 text-center">
+                            <h3>{{ result.summary.total_issues }}</h3>
+                            <p class="text-muted">Всего проблем</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h3 class="text-danger">{{ result.summary.critical_issues }}</h3>
+                            <p class="text-muted">Критических</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <h3>{{ result.summary.recommendations|length }}</h3>
+                            <p class="text-muted">Рекомендаций</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            {% if result.summary.status == 'high_risk' %}
+                                <span class="badge bg-danger fs-6">Высокий риск</span>
+                            {% elif result.summary.status == 'medium_risk' %}
+                                <span class="badge bg-warning fs-6">Средний риск</span>
+                            {% else %}
+                                <span class="badge bg-success fs-6">Низкий риск</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if result.timestamp %}
+                    <div class="mt-3 text-end">
+                        <small class="text-muted">Анализ выполнен: {{ result.timestamp }}</small>
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted">Данные анализа не доступны</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Базовая проверка -->
+        {% if result.basic_analysis %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Базовая проверка обязательных условий</h5>
+            </div>
+            <div class="card-body">
+                {% if result.basic_analysis.errors %}
+                    <div class="alert alert-danger">
+                        <h6>Найдены ошибки:</h6>
+                        <ul class="mb-0">
+                            {% for error in result.basic_analysis.errors %}
+                                <li class="issue-critical p-2">
+                                    <strong>{{ error.message }}</strong>
+                                    {% if error.severity == 'critical' %}
+                                        <span class="badge bg-danger ms-2">Критично</span>
+                                    {% endif %}
+                                    {% if error.get('found_alternative') %}
+                                        <br><small class="text-muted">Найдены альтернативные формулировки</small>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% else %}
+                    <div class="alert alert-success">
+                        ✅ Критических ошибок не найдено
+                    </div>
+                {% endif %}
+
+                {% if result.basic_analysis.warnings %}
+                    <div class="alert alert-warning">
+                        <h6>Предупреждения:</h6>
+                        <ul class="mb-0">
+                            {% for warning in result.basic_analysis.warnings %}
+                                <li class="issue-warning p-2">
+                                    {{ warning.message }}
+                                    {% if warning.get('details') %}
+                                        <br><small class="text-muted">{{ warning.details }}</small>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                <!-- Информация о проверенных разделах -->
+                {% if result.basic_analysis.mandatory_clauses_checked %}
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <strong>Проверенные разделы:</strong>
+                        {{ result.basic_analysis.mandatory_clauses_checked|join(', ') }}
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Сравнение с извещением -->
+        {% if result.has_notice and result.comparison %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Сравнение с извещением о закупке</h5>
+            </div>
+            <div class="card-body">
+                {% if result.comparison.mismatches %}
+                    <div class="alert alert-warning">
+                        <h6>Расхождения:</h6>
+                        <ul class="mb-0">
+                            {% for mismatch in result.comparison.mismatches %}
+                                <li class="issue-warning p-2">
+                                    <strong>{{ mismatch.message }}</strong>
+                                    {% if mismatch.contract_value and mismatch.notice_value %}
+                                        <br>
+                                        <small>
+                                            В контракте: {{ mismatch.contract_value }} |
+                                            В извещении: {{ mismatch.notice_value }}
+                                        </small>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% else %}
+                    <div class="alert alert-success">
+                        ✅ Контракт соответствует извещению о закупке
+                    </div>
+                {% endif %}
+
+                {% if result.comparison.parameters_compared %}
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <strong>Проверенные параметры:</strong>
+                        {{ result.comparison.parameters_compared|join(', ') }}
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- AI анализ -->
+        {% if result.ai_analysis %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">AI анализ контракта</h5>
+            </div>
+            <div class="card-body">
+                {% if result.ai_analysis.issues %}
+                    {% for issue in result.ai_analysis.issues %}
+                        <div class="alert
+                            {% if issue.severity == 'critical' %}alert-danger issue-critical
+                            {% elif issue.severity == 'warning' %}alert-warning issue-warning
+                            {% else %}alert-info issue-info{% endif %} p-3 mb-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <strong>{{ issue.description }}</strong>
+                                    <br>
+                                    <small class="mt-1 d-block">
+                                        <strong>Рекомендация:</strong> {{ issue.recommendation }}
+                                    </small>
+                                </div>
+                                <span class="badge
+                                    {% if issue.severity == 'critical' %}bg-danger
+                                    {% elif issue.severity == 'warning' %}bg-warning
+                                    {% else %}bg-info{% endif %} ms-2">
+                                    {{ issue.severity }}
+                                </span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-success">
+                        ✅ AI анализ не выявил существенных проблем
+                    </div>
+                {% endif %}
+
+                {% if result.ai_analysis.recommendations %}
+                    <div class="alert alert-info">
+                        <h6>📋 Общие рекомендации:</h6>
+                        <ul class="mb-0">
+                            {% for recommendation in result.ai_analysis.recommendations %}
+                                <li class="mb-1">{{ recommendation }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                {% if result.ai_analysis.summary %}
+                    <div class="mt-3 p-3 bg-light rounded">
+                        <h6>📊 Итоговая оценка:</h6>
+                        <p class="mb-0">{{ result.ai_analysis.summary }}</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Детальная информация о контракте -->
+        {% if result.contract_info %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Информация о контракте</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% if result.contract_info.price %}
+                    <div class="col-md-6">
+                        <strong>Цена контракта:</strong> {{ result.contract_info.price }}
+                    </div>
+                    {% endif %}
+                    {% if result.contract_info.supplier %}
+                    <div class="col-md-6">
+                        <strong>Поставщик:</strong> {{ result.contract_info.supplier }}
+                    </div>
+                    {% endif %}
+                    {% if result.contract_info.customer %}
+                    <div class="col-md-6">
+                        <strong>Заказчик:</strong> {{ result.contract_info.customer }}
+                    </div>
+                    {% endif %}
+                    {% if result.contract_info.period %}
+                    <div class="col-md-6">
+                        <strong>Срок действия:</strong> {{ result.contract_info.period }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="text-center mt-4">
+            <a href="{{ url_for('upload_files') }}" class="btn btn-primary me-2">🔄 Новая проверка</a>
+            <a href="{{ url_for('chat') }}" class="btn btn-outline-primary me-2">💬 Задать вопрос</a>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">🏠 На главную</a>
+        </div>
+
+        <!-- Отладочная информация (только для разработки) -->
+        {% if config.DEBUG %}
+        <div class="card mt-4">
+            <div class="card-header bg-dark text-white">
+                <h6 class="mb-0">Отладочная информация</h6>
+            </div>
+            <div class="card-body">
+                <details>
+                    <summary>Показать сырые данные</summary>
+                    <pre class="mt-3"><code>{{ result|tojson(indent=2) }}</code></pre>
+                </details>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,6 @@
+Flask==2.3.3
+Werkzeug==2.3.7
+PyPDF2==3.0.1
+python-docx==0.8.11
+langchain-gigachat==0.0.3
+langchain-core==0.0.12
