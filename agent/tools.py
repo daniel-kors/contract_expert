@@ -96,35 +96,12 @@ class ContractValidator:
     """Улучшенная валидация контрактов"""
 
     def __init__(self):
-        # Более гибкие паттерны для поиска разделов
         self.mandatory_clauses_44 = {
-            "предмет контракта": [
-                "предмет контракта", "предмет договора", "i. предмет", "1. предмет"
-            ],
-            "цена контракта": [
-                "цена контракта", "цена договора", "стоимость", "ii. цена",
-                "2. цена", "цена и порядок расчетов"
-            ],
-            "срок исполнения": [
-                "срок исполнения", "срок поставки", "срок действия",
-                "iii. порядок", "3. порядок", "дата начала", "дата окончания"
-            ],
-            "порядок оплаты": [
-                "порядок оплаты", "условия оплаты", "расчеты", "оплата",
-                "срок оплаты", "2.4", "2.5", "2.6"
-            ],
-            "ответственность сторон": [
-                "ответственность сторон", "ответственность", "штраф",
-                "пеня", "неустойка", "vii. ответственность", "7. ответственность"
-            ],
-            "условия расторжения": [
-                "условия расторжения", "расторжение", "односторонний отказ",
-                "xi. срок действия", "11. срок действия"
-            ],
-            "гарантийные обязательства": [
-                "гарантийные обязательства", "гарантия", "гарантийный срок",
-                "качество товара", "vi. качество", "6. качество"
-            ]
+            "предмет контракта": ["предмет контракта", "предмет договора", "i. предмет", "1. предмет"],
+            "цена контракта": ["цена контракта", "цена договора", "стоимость", "ii. цена", "2. цена"],
+            "срок исполнения": ["срок исполнения", "срок поставки", "срок действия", "iii. порядок", "3. порядок"],
+            "порядок оплаты": ["порядок оплаты", "условия оплаты", "расчеты", "оплата"],
+            "ответственность сторон": ["ответственность сторон", "ответственность", "штраф", "пеня", "неустойка"],
         }
 
     def basic_validation(self, contract_text: str, law_type: str) -> Dict[str, Any]:
@@ -132,101 +109,85 @@ class ContractValidator:
         errors = []
         warnings = []
 
-        # Приводим текст к нижнему регистру для поиска
         text_lower = contract_text.lower()
 
         # Проверяем наличие обязательных разделов
         for clause_name, patterns in self.mandatory_clauses_44.items():
             found = any(pattern in text_lower for pattern in patterns)
-
             if not found:
-                # Проверяем наличие ключевых слов, связанных с разделом
-                if self._check_related_keywords(clause_name, text_lower):
-                    warnings.append({
-                        'type': 'clause_format',
-                        'clause': clause_name,
-                        'severity': 'warning',
-                        'message': f'Раздел "{clause_name}" присутствует, но имеет нестандартное название'
-                    })
-                else:
-                    errors.append({
-                        'type': 'missing_clause',
-                        'clause': clause_name,
-                        'severity': 'critical',
-                        'message': f'Отсутствует обязательный раздел: {clause_name}'
-                    })
+                errors.append({
+                    'type': 'missing_clause',
+                    'clause': clause_name,
+                    'severity': 'critical',
+                    'message': f'Отсутствует обязательный раздел: {clause_name}'
+                })
 
-        # Проверка цены контракта
-        price_found = self._find_price(contract_text)
-        if not price_found:
+        # ТОЧНЫЙ поиск цены контракта
+        price_info = self._extract_price_info(contract_text)
+        if not price_info.get('found'):
             errors.append({
                 'type': 'missing_price',
                 'severity': 'critical',
                 'message': 'Не обнаружена цена контракта'
             })
-
-        # Проверка реквизитов
-        requisites_check = self._check_requisites(contract_text)
-        warnings.extend(requisites_check)
+        else:
+            # Проверяем соответствие основанию заключения
+            foundation_check = self._check_contract_foundation(contract_text, price_info['numeric_value'], law_type)
+            if foundation_check:
+                errors.append(foundation_check)
 
         return {
             'errors': errors,
             'warnings': warnings,
-            'mandatory_clauses_checked': list(self.mandatory_clauses_44.keys())
+            'price_info': price_info
         }
 
-    def _check_related_keywords(self, clause_name: str, text: str) -> bool:
-        """Проверяет наличие ключевых слов, связанных с разделом"""
-        keyword_map = {
-            "предмет контракта": ["поставщик", "заказчик", "товар", "продукция"],
-            "цена контракта": ["рубл", "копеек", "сумма", "стоимость"],
-            "порядок оплаты": ["оплата", "платеж", "перечислен", "счет"],
-            "ответственность сторон": ["штраф", "пеня", "ответственность", "нарушен"],
-            "условия расторжения": ["расторжен", "отказ", "прекращен"],
-            "гарантийные обязательства": ["гарантия", "качество", "брак", "замен"]
-        }
-
-        keywords = keyword_map.get(clause_name, [])
-        return any(keyword in text for keyword in keywords)
-
-    def _find_price(self, text: str) -> bool:
-        """Ищет цену контракта"""
+    def _extract_price_info(self, text: str) -> Dict[str, Any]:
+        """ТОЧНО извлекает информацию о цене контракта"""
+        # Паттерны для поиска цены
         price_patterns = [
-            r'цена[\s\S]{1,200}?(\d{1,}[\d\s]*[.,]\d{2})',
-            r'стоимость[\s\S]{1,200}?(\d{1,}[\d\s]*[.,]\d{2})',
-            r'(\d{1,}[\d\s]*[.,]\d{2})\s*рубл',
-            r'цена контракта[^0-9]{0,100}(\d{1,}[\d\s]*[.,]\d{2})'
+            r'цена\s+контракта\s+составляет\s+([^\n]{0,200}?)(\d{1,3}(?:\s?\d{3})*(?:[.,]\d{2})?)',
+            r'стоимость[^\n]{0,100}?(\d{1,3}(?:\s?\d{3})*(?:[.,]\d{2})?)',
+            r'(\d{1,3}(?:\s?\d{3})*(?:[.,]\d{2})?)\s*рубл',
         ]
 
-        return any(re.search(pattern, text, re.IGNORECASE | re.DOTALL)
-                   for pattern in price_patterns)
+        for pattern in price_patterns:
+            matches = re.finditer(pattern, text, re.IGNORECASE | re.DOTALL)
+            for match in matches:
+                price_str = match.group(1) if len(match.groups()) > 1 else match.group(1)
+                # Очищаем строку от пробелов и преобразуем в число
+                price_clean = re.sub(r'[^\d,.]', '', price_str.replace(' ', ''))
+                price_clean = price_clean.replace(',', '.')
 
-    def _check_requisites(self, text: str) -> List[Dict]:
-        """Проверяет наличие реквизитов"""
-        warnings = []
-        text_lower = text.lower()
+                try:
+                    numeric_value = float(price_clean)
+                    return {
+                        'found': True,
+                        'text_value': price_str.strip(),
+                        'numeric_value': numeric_value,
+                        'context': match.group(0)[:100]
+                    }
+                except ValueError:
+                    continue
 
-        requisites_to_check = {
-            "инн": ["инн", "идентификационный номер"],
-            "расчетный счет": ["расчетный счет", "р/с", "р/счет"],
-            "бик": ["бик", "банковский идентификационный код"],
-            "кпп": ["кпп", "код причины"],
-            "огрн": ["огрн", "основной государственный регистрационный номер"]
-        }
+        return {'found': False}
 
-        missing = []
-        for req_name, patterns in requisites_to_check.items():
-            if not any(pattern in text_lower for pattern in patterns):
-                missing.append(req_name)
+    def _check_contract_foundation(self, text: str, price: float, law_type: str) -> Optional[Dict]:
+        """Проверяет соответствие основания заключения контракта его цене"""
+        # Ищем упоминания статей 44-ФЗ
+        article_93_pattern = r'ст\.\s*93|стать[ия]\s*93|п\.\s*25|пункт\s*25'
+        article_93_matches = re.findall(article_93_pattern, text, re.IGNORECASE)
 
-        if missing:
-            warnings.append({
-                'type': 'missing_requisites',
-                'severity': 'warning',
-                'message': f'Возможно отсутствуют реквизиты: {", ".join(missing)}'
-            })
+        if article_93_matches and price > 100000:
+            return {
+                'type': 'foundation_mismatch',
+                'severity': 'critical',
+                'message': f'Цена контракта ({price} руб.) превышает лимит для п. 25 ч. 1 ст. 93 44-ФЗ (100 000 руб.)'
+            }
+        elif article_93_matches and price <= 100000:
+            return None  # Все корректно
 
-        return warnings
+        return None
 
     def compare_with_notice(self, contract_text: str, notice_text: str) -> Dict[str, Any]:
         """Сравнение контракта с извещением"""
@@ -251,16 +212,5 @@ class ContractValidator:
 
     def _extract_price_value(self, text: str) -> Optional[str]:
         """Извлекает числовое значение цены"""
-        # Ищем паттерны с ценами
-        patterns = [
-            r'цена[\s\S]{1,200}?(\d{1,}[\d\s]*[.,]\d{2})',
-            r'стоимость[\s\S]{1,200}?(\d{1,}[\d\s]*[.,]\d{2})',
-            r'(\d{1,}[\d\s]*[.,]\d{2})\s*рубл'
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
-            if match:
-                return match.group(1)
-
-        return None
+        price_info = self._extract_price_info(text)
+        return price_info.get('text_value') if price_info.get('found') else None
